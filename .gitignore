@@ -1,0 +1,10 @@
+.DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+
+# Local assistant and planning files
+.github/copilot-instructions.md
+MILESTONES.md
+ACCESSIBILITY_CHECKS.md
