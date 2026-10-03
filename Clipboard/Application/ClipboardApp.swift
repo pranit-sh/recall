@@ -6,7 +6,10 @@ struct ClipboardApp: App {
 
     var body: some Scene {
         MenuBarExtra("Recall", systemImage: "doc.text.magnifyingglass") {
-            MenuBarRootView(viewModel: appDelegate.historyViewModel)
+            MenuBarRootView(
+                viewModel: appDelegate.historyViewModel,
+                imagePreviewPresenter: appDelegate.imagePreviewPresenter
+            )
         }
         .menuBarExtraStyle(.window)
 

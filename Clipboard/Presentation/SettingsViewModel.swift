@@ -9,11 +9,15 @@ struct IgnoredApplicationSetting: Identifiable, Equatable {
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
-    static let availableHistoryLimits = [50, 100, 200]
+    static let availableTextHistoryLimits = [50, 100, 200]
     static let availableDisplayLimits = [15, 20, 25]
+    static let availableImageLimits = [5, 10, 20]
+    static let availableImageStorageLimitsInMegabytes = [50, 100, 200]
 
-    @Published private(set) var historyLimit: Int
+    @Published private(set) var textHistoryLimit: Int
     @Published private(set) var displayLimit: Int
+    @Published private(set) var imageLimit: Int
+    @Published private(set) var imageStorageLimitInMegabytes: Int
     @Published private(set) var launchAtLoginEnabled: Bool
     @Published private(set) var ignoredApplications: [IgnoredApplicationSetting] = []
     @Published var errorMessage: String?
@@ -41,8 +45,10 @@ final class SettingsViewModel: ObservableObject {
         self.applicationProvider = applicationProvider
         self.launchAtLoginManager = launchAtLoginManager
         self.displayLimitDidChange = displayLimitDidChange
-        historyLimit = monitor.history.limit
+        textHistoryLimit = monitor.history.textLimit
         self.displayLimit = Self.availableDisplayLimits.contains(displayLimit) ? displayLimit : 20
+        imageLimit = monitor.history.imageLimit
+        imageStorageLimitInMegabytes = monitor.history.imageByteLimit / (1_024 * 1_024)
         launchAtLoginEnabled = launchAtLoginManager.isEnabled
         refreshIgnoredApplications(from: privacySettings.ignoredApplicationBundleIdentifiers)
 
@@ -52,17 +58,17 @@ final class SettingsViewModel: ObservableObject {
             }
     }
 
-    func updateHistoryLimit(_ limit: Int) {
-        guard Self.availableHistoryLimits.contains(limit) else { return }
+    func updateTextHistoryLimit(_ limit: Int) {
+        guard Self.availableTextHistoryLimits.contains(limit) else { return }
 
-        historyLimit = limit
-        monitor.updateHistoryLimit(limit)
+        textHistoryLimit = limit
+        monitor.updateTextHistoryLimit(limit)
 
         do {
             try settingsPersistence?.saveHistoryLimit(limit)
             errorMessage = nil
         } catch {
-            errorMessage = "The history size could not be saved."
+            errorMessage = "The text history size could not be saved."
         }
     }
 
@@ -77,6 +83,34 @@ final class SettingsViewModel: ObservableObject {
             errorMessage = nil
         } catch {
             errorMessage = "The displayed clips setting could not be saved."
+        }
+    }
+
+    func updateImageLimit(_ limit: Int) {
+        guard Self.availableImageLimits.contains(limit) else { return }
+
+        imageLimit = limit
+        applyImageLimits()
+
+        do {
+            try settingsPersistence?.saveImageLimit(limit)
+            errorMessage = nil
+        } catch {
+            errorMessage = "The image count limit could not be saved."
+        }
+    }
+
+    func updateImageStorageLimitInMegabytes(_ limit: Int) {
+        guard Self.availableImageStorageLimitsInMegabytes.contains(limit) else { return }
+
+        imageStorageLimitInMegabytes = limit
+        applyImageLimits()
+
+        do {
+            try settingsPersistence?.saveImageStorageLimitInMegabytes(limit)
+            errorMessage = nil
+        } catch {
+            errorMessage = "The image storage limit could not be saved."
         }
     }
 
@@ -112,5 +146,12 @@ final class SettingsViewModel: ObservableObject {
             .sorted {
                 $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
             }
+    }
+
+    private func applyImageLimits() {
+        monitor.updateImageLimits(
+            count: imageLimit,
+            byteCount: imageStorageLimitInMegabytes * 1_024 * 1_024
+        )
     }
 }

@@ -2,17 +2,19 @@
 
 A native, local-only clipboard manager for macOS.
 
-Recall keeps recently copied text close at hand from the menu bar. History,
-settings, and contextual usage data remain on the Mac.
+Recall keeps recently copied text and images close at hand from the menu bar.
+History, settings, image files, and contextual usage data remain on the Mac.
 
 <img src="docs/images/recall-popover.png" alt="Recall clipboard history popover" width="420">
 
 ## Features
 
-- Searchable, deduplicated clipboard history
+- Searchable, deduplicated text and image history
+- Compact image rows with dimensions and hover previews
 - Keyboard-first navigation
 - Context-aware ranking for the active application
-- Configurable history size and ignored applications
+- Independent text, image-count, and image-storage limits
+- Configurable displayed-item count and ignored applications
 - Launch at login with fully local storage
 
 ## Requirements
@@ -30,12 +32,15 @@ app. Recall appears only in the menu bar.
 ```text
 Clipboard/
   Application/    App lifecycle and composition root
+  Domain/         Clipboard models, history rules, and ports
+  Infrastructure/ Pasteboard, persistence, and macOS adapters
   Presentation/   SwiftUI views and presentation logic
 ClipboardTests/   Unit tests
 ```
 
-Clipboard history is stored locally in
-`~/Library/Application Support/Clipboard/history.sqlite3`.
+Clipboard metadata is stored locally in
+`~/Library/Application Support/Clipboard/history.sqlite3`. Image data is stored
+in `~/Library/Application Support/Clipboard/Images/`.
 
 ## Build
 

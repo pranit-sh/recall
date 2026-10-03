@@ -42,6 +42,29 @@ final class ClipboardHistoryViewModelTests: XCTestCase {
         XCTAssertEqual(popoverDismisser.dismissCallCount, 1)
     }
 
+    func testSelectingImageWritesStoredDataToPasteboard() {
+        let pasteboard = ViewModelPasteboardStub()
+        let popoverDismisser = ViewModelPopoverDismisserStub()
+        let imageStore = ViewModelImageStoreStub(data: Data([1, 2, 3]))
+        let monitor = ClipboardMonitor(
+            pasteboard: pasteboard,
+            history: ClipboardHistory(limit: 10)
+        )
+        let viewModel = ClipboardHistoryViewModel(
+            monitor: monitor,
+            pasteboard: pasteboard,
+            imageStore: imageStore,
+            popoverDismisser: popoverDismisser
+        )
+        let item = ClipboardItem(image: makeViewModelImage())
+
+        viewModel.select(item)
+
+        XCTAssertEqual(pasteboard.writtenImageData, Data([1, 2, 3]))
+        XCTAssertEqual(pasteboard.writtenImageFormat, .png)
+        XCTAssertEqual(popoverDismisser.dismissCallCount, 1)
+    }
+
     func testSearchFiltersCaseInsensitivelyAndPreservesMRUOrder() {
         let pasteboard = ViewModelPasteboardStub()
         var history = ClipboardHistory(limit: 10)
@@ -57,6 +80,19 @@ final class ClipboardHistoryViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.filteredItems, [newerMatch, olderMatch])
         XCTAssertNil(viewModel.selectedItemID)
+    }
+
+    func testSearchMatchesImageDisplayLabel() {
+        let pasteboard = ViewModelPasteboardStub()
+        let imageItem = ClipboardItem(image: makeViewModelImage())
+        let viewModel = makeViewModel(
+            history: ClipboardHistory(limit: 10, items: [imageItem]),
+            pasteboard: pasteboard
+        )
+
+        viewModel.searchText = "640"
+
+        XCTAssertEqual(viewModel.filteredItems, [imageItem])
     }
 
     func testDisplayLimitCapsResultsWithoutHidingSearchMatches() {
@@ -372,10 +408,23 @@ final class ClipboardHistoryViewModelTests: XCTestCase {
     }
 }
 
+private func makeViewModelImage() -> ClipboardImage {
+    ClipboardImage(
+        storageIdentifier: "image.png",
+        contentHash: "image-hash",
+        pixelWidth: 640,
+        pixelHeight: 480,
+        byteCount: 3,
+        format: .png
+    )
+}
+
 @MainActor
 private final class ViewModelPasteboardStub: PasteboardReading, PasteboardWriting {
     private(set) var changeCount = 0
     private(set) var writtenText: String?
+    private(set) var writtenImageData: Data?
+    private(set) var writtenImageFormat: ClipboardImageFormat?
     private var text: String?
 
     func readString() -> String? {
@@ -386,10 +435,31 @@ private final class ViewModelPasteboardStub: PasteboardReading, PasteboardWritin
         writtenText = text
     }
 
+    func writeImage(_ data: Data, format: ClipboardImageFormat) {
+        writtenImageData = data
+        writtenImageFormat = format
+    }
+
     func simulateChange(to text: String) {
         changeCount += 1
         self.text = text
     }
+}
+
+@MainActor
+private final class ViewModelImageStoreStub: ClipboardImageStoring {
+    private let data: Data
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    func store(_ image: ClipboardImageData) throws -> ClipboardImage {
+        makeViewModelImage()
+    }
+
+    func load(_ image: ClipboardImage) throws -> Data { data }
+    func remove(_ image: ClipboardImage) throws {}
 }
 
 @MainActor

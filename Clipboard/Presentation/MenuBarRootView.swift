@@ -4,9 +4,18 @@ import SwiftUI
 struct MenuBarRootView: View {
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var viewModel: ClipboardHistoryViewModel
+    let imagePreviewPresenter: ClipboardImagePreviewPresenting?
     @FocusState private var isSearchFocused: Bool
     @State private var hoveredItemID: ClipboardItem.ID?
     @State private var selectedAction: PopoverAction?
+
+    init(
+        viewModel: ClipboardHistoryViewModel,
+        imagePreviewPresenter: ClipboardImagePreviewPresenting? = nil
+    ) {
+        self.viewModel = viewModel
+        self.imagePreviewPresenter = imagePreviewPresenter
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,6 +38,7 @@ struct MenuBarRootView: View {
                             ForEach(viewModel.displayedItems) { item in
                                 ClipboardHistoryRow(
                                     item: item,
+                                    imagePreviewPresenter: imagePreviewPresenter,
                                     isSelected: item.id == viewModel.selectedItemID,
                                     isHighlighted: item.id == hoveredItemID
                                         || (hoveredItemID == nil && item.id == viewModel.selectedItemID)
@@ -67,6 +77,7 @@ struct MenuBarRootView: View {
         }
         .onHover { isInsidePopover in
             guard !isInsidePopover else { return }
+            imagePreviewPresenter?.dismissPreview()
             hoveredItemID = nil
             viewModel.clearSelection()
         }
@@ -284,38 +295,149 @@ private enum PopoverAction {
 
 private struct ClipboardHistoryRow: View {
     let item: ClipboardItem
+    let imagePreviewPresenter: ClipboardImagePreviewPresenting?
     let isSelected: Bool
     let isHighlighted: Bool
     let action: () -> Void
     let onHoverChange: (Bool) -> Void
+    @State private var previewTask: Task<Void, Never>?
 
     var body: some View {
         Button(action: action) {
-            Text(item.text)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .foregroundStyle(
-                    isHighlighted
-                        ? Color(nsColor: .alternateSelectedControlTextColor)
-                        : Color.primary
+            HStack(spacing: 7) {
+                if item.image != nil {
+                    Image(systemName: "photo")
+                        .frame(width: 14)
+                        .accessibilityHidden(true)
+                }
+
+                TruncatingRowText(
+                    text: item.displayText,
+                    showsHelpWhenTruncated: item.image == nil,
+                    color: foregroundColor
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10)
-                .frame(height: 24)
-                .contentShape(Rectangle())
-                .background(
-                    isHighlighted
-                        ? Color(nsColor: .selectedContentBackgroundColor)
-                        : Color.clear,
-                    in: RoundedRectangle(cornerRadius: 6)
-                )
+            }
+            .foregroundStyle(foregroundColor)
+            .padding(.horizontal, 10)
+            .frame(height: 24)
+            .contentShape(Rectangle())
+            .background(
+                isHighlighted
+                    ? Color(nsColor: .selectedContentBackgroundColor)
+                    : Color.clear,
+                in: RoundedRectangle(cornerRadius: 6)
+            )
         }
         .buttonStyle(.plain)
-        .help(item.text)
-        .accessibilityLabel(item.text)
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Copies this item to the clipboard")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .onHover(perform: onHoverChange)
+        .onHover { isHovered in
+            onHoverChange(isHovered)
+            updatePreview(isHovered: isHovered)
+        }
+        .onDisappear {
+            previewTask?.cancel()
+            imagePreviewPresenter?.dismissPreview()
+        }
+    }
+
+    private var accessibilityLabel: String {
+        guard let image = item.image else { return item.displayText }
+        return "Image, \(image.pixelWidth) by \(image.pixelHeight) pixels"
+    }
+
+    private var foregroundColor: Color {
+        isHighlighted
+            ? Color(nsColor: .alternateSelectedControlTextColor)
+            : Color.primary
+    }
+
+    private func updatePreview(isHovered: Bool) {
+        previewTask?.cancel()
+        previewTask = nil
+
+        guard isHovered, let image = item.image else {
+            imagePreviewPresenter?.dismissPreview()
+            return
+        }
+
+        previewTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            imagePreviewPresenter?.presentPreview(for: image)
+        }
+    }
+}
+
+private struct TruncatingRowText: View {
+    let text: String
+    let showsHelpWhenTruncated: Bool
+    let color: Color
+
+    @State private var availableWidth: CGFloat = 0
+    @State private var intrinsicWidth: CGFloat = 0
+
+    var body: some View {
+        Group {
+            if showsHelpWhenTruncated && intrinsicWidth > availableWidth + 1 {
+                label.help(text)
+            } else {
+                label
+            }
+        }
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: AvailableTextWidthPreferenceKey.self,
+                    value: proxy.size.width
+                )
+            }
+        }
+        .overlay(alignment: .leading) {
+            Text(text)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .hidden()
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: IntrinsicTextWidthPreferenceKey.self,
+                            value: proxy.size.width
+                        )
+                    }
+                }
+        }
+        .onPreferenceChange(AvailableTextWidthPreferenceKey.self) {
+            availableWidth = $0
+        }
+        .onPreferenceChange(IntrinsicTextWidthPreferenceKey.self) {
+            intrinsicWidth = $0
+        }
+    }
+
+    private var label: some View {
+        Text(text)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .foregroundStyle(color)
+    }
+}
+
+private struct AvailableTextWidthPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct IntrinsicTextWidthPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

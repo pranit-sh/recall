@@ -1,17 +1,32 @@
 struct ClipboardHistory {
     private(set) var items: [ClipboardItem] = []
 
-    private(set) var limit: Int
+    private(set) var textLimit: Int
+    private(set) var imageLimit: Int
+    private(set) var imageByteLimit: Int
 
-    init(limit: Int, items: [ClipboardItem] = []) {
-        self.limit = max(0, limit)
-        self.items = Array(
-            items.sorted(by: Self.isMoreRecent).prefix(self.limit)
+    init(
+        limit: Int,
+        imageLimit: Int = 10,
+        imageByteLimit: Int = 100 * 1_024 * 1_024,
+        items: [ClipboardItem] = []
+    ) {
+        textLimit = max(0, limit)
+        self.imageLimit = max(0, imageLimit)
+        self.imageByteLimit = max(0, imageByteLimit)
+        self.items = Self.limitedItems(
+            from: items.sorted(by: Self.isMoreRecent),
+            textLimit: textLimit,
+            imageLimit: self.imageLimit,
+            imageByteLimit: self.imageByteLimit
         )
     }
 
-    mutating func add(_ item: ClipboardItem) {
-        if let existingIndex = items.firstIndex(where: { $0.hasSameContent(as: item.text) }) {
+    @discardableResult
+    mutating func add(_ item: ClipboardItem) -> [ClipboardItem] {
+        let previousItems = items
+
+        if let existingIndex = items.firstIndex(where: { $0.hasSameContent(as: item.content) }) {
             var existingItem = items.remove(at: existingIndex)
             existingItem.lastUsedAt = item.lastUsedAt
             items.insert(existingItem, at: 0)
@@ -19,16 +34,50 @@ struct ClipboardHistory {
             items.insert(item, at: 0)
         }
 
-        items = Array(items.prefix(limit))
+        items = Self.limitedItems(
+            from: items,
+            textLimit: textLimit,
+            imageLimit: imageLimit,
+            imageByteLimit: imageByteLimit
+        )
+        return previousItems.filter { previous in
+            !items.contains(where: { $0.id == previous.id })
+        }
     }
 
     mutating func removeAll() {
         items.removeAll()
     }
 
-    mutating func updateLimit(_ newLimit: Int) {
-        limit = max(0, newLimit)
-        items = Array(items.prefix(limit))
+    @discardableResult
+    mutating func updateTextLimit(_ newLimit: Int) -> [ClipboardItem] {
+        let previousItems = items
+        textLimit = max(0, newLimit)
+        items = Self.limitedItems(
+            from: items,
+            textLimit: textLimit,
+            imageLimit: imageLimit,
+            imageByteLimit: imageByteLimit
+        )
+        return previousItems.filter { previous in
+            !items.contains(where: { $0.id == previous.id })
+        }
+    }
+
+    @discardableResult
+    mutating func updateImageLimits(count: Int, byteCount: Int) -> [ClipboardItem] {
+        let previousItems = items
+        imageLimit = max(0, count)
+        imageByteLimit = max(0, byteCount)
+        items = Self.limitedItems(
+            from: items,
+            textLimit: textLimit,
+            imageLimit: imageLimit,
+            imageByteLimit: imageByteLimit
+        )
+        return previousItems.filter { previous in
+            !items.contains(where: { $0.id == previous.id })
+        }
     }
 
     private static func isMoreRecent(_ first: ClipboardItem, than second: ClipboardItem) -> Bool {
@@ -41,5 +90,29 @@ struct ClipboardHistory {
         }
 
         return first.id.uuidString < second.id.uuidString
+    }
+
+    private static func limitedItems(
+        from items: [ClipboardItem],
+        textLimit: Int,
+        imageLimit: Int,
+        imageByteLimit: Int
+    ) -> [ClipboardItem] {
+        var retainedImageCount = 0
+        var retainedImageBytes = 0
+        var retainedTextCount = 0
+
+        return items.filter { item in
+            guard let image = item.image else {
+                guard retainedTextCount < textLimit else { return false }
+                retainedTextCount += 1
+                return true
+            }
+            guard retainedImageCount < imageLimit,
+                  retainedImageBytes + image.byteCount <= imageByteLimit else { return false }
+            retainedImageCount += 1
+            retainedImageBytes += image.byteCount
+            return true
+        }
     }
 }

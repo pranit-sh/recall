@@ -42,6 +42,45 @@ final class SQLiteClipboardHistoryStoreTests: XCTestCase {
         XCTAssertEqual(try store.load(), [retainedItem])
     }
 
+    func testSavedImageMetadataCanBeLoadedFromAReopenedDatabase() throws {
+        let databaseURL = makeDatabaseURL()
+        defer { try? FileManager.default.removeItem(at: databaseURL.deletingLastPathComponent()) }
+        let image = ClipboardImage(
+            storageIdentifier: "hash.png",
+            contentHash: "hash",
+            pixelWidth: 800,
+            pixelHeight: 600,
+            byteCount: 1024,
+            format: .png
+        )
+        let item = ClipboardItem(image: image)
+
+        try SQLiteClipboardHistoryStore(databaseURL: databaseURL).save([item])
+        let loadedItems = try SQLiteClipboardHistoryStore(databaseURL: databaseURL).load()
+
+        XCTAssertEqual(loadedItems.first?.image, image)
+    }
+
+    func testImageFileStoreRoundTripsAndRemovesData() throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let store = FileClipboardImageStore(directoryURL: directoryURL)
+        let source = ClipboardImageData(
+            data: Data([1, 2, 3]),
+            contentHash: "content-hash",
+            pixelWidth: 10,
+            pixelHeight: 20,
+            format: .png
+        )
+
+        let storedImage = try store.store(source)
+
+        XCTAssertEqual(try store.load(storedImage), source.data)
+        try store.remove(storedImage)
+        XCTAssertThrowsError(try store.load(storedImage))
+    }
+
     func testCorruptDatabaseFailsWithoutCrashing() throws {
         let databaseURL = makeDatabaseURL()
         defer { try? FileManager.default.removeItem(at: databaseURL.deletingLastPathComponent()) }
@@ -171,6 +210,19 @@ final class SQLiteClipboardHistoryStoreTests: XCTestCase {
             .loadDisplayLimit()
 
         XCTAssertEqual(restoredLimit, 20)
+    }
+
+    func testImageLimitsPersistAcrossDatabaseInstances() throws {
+        let databaseURL = makeDatabaseURL()
+        defer { try? FileManager.default.removeItem(at: databaseURL.deletingLastPathComponent()) }
+
+        let store = try SQLiteClipboardHistoryStore(databaseURL: databaseURL)
+        try store.saveImageLimit(20)
+        try store.saveImageStorageLimitInMegabytes(200)
+        let reopenedStore = try SQLiteClipboardHistoryStore(databaseURL: databaseURL)
+
+        XCTAssertEqual(try reopenedStore.loadImageLimit(), 20)
+        XCTAssertEqual(try reopenedStore.loadImageStorageLimitInMegabytes(), 200)
     }
 
     private func makeDatabaseURL() -> URL {

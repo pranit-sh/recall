@@ -2,6 +2,23 @@
 
 All notable changes to Recall are documented in this file.
 
+## 0.3.0 - 2026-10-03
+
+### Added
+
+- Clipboard history support for capturing, restoring, and copying PNG, JPEG, and TIFF images.
+- Compact image rows with dimensions and a non-interactive hover preview beside the menu.
+- Independent settings for saved text clips, saved images, and image storage.
+- Local image-file storage with hash-based deduplication and SQLite metadata.
+
+### Changed
+
+- Reorganized General settings into Storage and Application sections.
+- Applied the displayed-items limit to the combined text and image history.
+- Limited images to 20 MB each and configurable totals of 50, 100, or 200 MB.
+- Limited saved image counts to 5, 10, or 20.
+- Show text tooltips only when a text row is truncated.
+
 ## 0.2.0 - 2026-10-03
 
 ### Added

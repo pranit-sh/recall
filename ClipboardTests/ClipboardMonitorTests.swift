@@ -59,6 +59,30 @@ final class ClipboardMonitorTests: XCTestCase {
         XCTAssertTrue(monitor.history.items.isEmpty)
     }
 
+    func testChangedPasteboardStoresImageInHistory() throws {
+        let pasteboard = PasteboardStub()
+        let imageStore = ImageStoreStub()
+        let monitor = ClipboardMonitor(
+            pasteboard: pasteboard,
+            history: ClipboardHistory(limit: 10),
+            imageStore: imageStore
+        )
+        let imageData = ClipboardImageData(
+            data: Data([1, 2, 3]),
+            contentHash: "image-hash",
+            pixelWidth: 640,
+            pixelHeight: 480,
+            format: .png
+        )
+        pasteboard.simulateImageChange(to: imageData)
+
+        monitor.checkForChanges()
+
+        let image = try XCTUnwrap(monitor.history.items.first?.image)
+        XCTAssertEqual(image.contentHash, "image-hash")
+        XCTAssertEqual(image.displayText, "640 × 480")
+    }
+
     func testWhitespaceOnlyPasteboardChangeIsIgnored() {
         let pasteboard = PasteboardStub()
         let monitor = makeMonitor(pasteboard: pasteboard)
@@ -165,11 +189,35 @@ final class ClipboardMonitorTests: XCTestCase {
             persistence: persistence
         )
 
-        monitor.updateHistoryLimit(1)
+        monitor.updateTextHistoryLimit(1)
 
-        XCTAssertEqual(monitor.history.limit, 1)
+        XCTAssertEqual(monitor.history.textLimit, 1)
         XCTAssertEqual(monitor.history.items.map(\.text), ["Second"])
         XCTAssertEqual(persistence.savedItems.map(\.text), ["Second"])
+    }
+
+    func testUpdatingImageLimitRemovesEvictedImageFile() {
+        let pasteboard = PasteboardStub()
+        let imageStore = ImageStoreStub()
+        let firstImage = makeMonitorImage(hash: "first")
+        let secondImage = makeMonitorImage(hash: "second")
+        let history = ClipboardHistory(
+            limit: 10,
+            items: [
+                ClipboardItem(image: secondImage, createdAt: Date(timeIntervalSince1970: 2)),
+                ClipboardItem(image: firstImage, createdAt: Date(timeIntervalSince1970: 1))
+            ]
+        )
+        let monitor = ClipboardMonitor(
+            pasteboard: pasteboard,
+            history: history,
+            imageStore: imageStore
+        )
+
+        monitor.updateImageLimits(count: 1, byteCount: 100)
+
+        XCTAssertEqual(monitor.history.items.compactMap(\.image), [secondImage])
+        XCTAssertEqual(imageStore.removedImages, [firstImage])
     }
 
     private func makeMonitor(pasteboard: PasteboardStub) -> ClipboardMonitor {
@@ -178,6 +226,17 @@ final class ClipboardMonitorTests: XCTestCase {
             history: ClipboardHistory(limit: 10)
         )
     }
+}
+
+private func makeMonitorImage(hash: String) -> ClipboardImage {
+    ClipboardImage(
+        storageIdentifier: "\(hash).png",
+        contentHash: hash,
+        pixelWidth: 10,
+        pixelHeight: 10,
+        byteCount: 1,
+        format: .png
+    )
 }
 
 @MainActor
@@ -223,6 +282,7 @@ private final class MonitorApplicationProviderStub: ActiveApplicationProviding {
 private final class PasteboardStub: PasteboardReading {
     private(set) var changeCount: Int
     private var text: String?
+    private var image: ClipboardImageData?
 
     init(changeCount: Int = 0, text: String? = nil) {
         self.changeCount = changeCount
@@ -233,8 +293,40 @@ private final class PasteboardStub: PasteboardReading {
         text
     }
 
+    func readImage() -> ClipboardImageData? {
+        image
+    }
+
     func simulateChange(to text: String?) {
         changeCount += 1
         self.text = text
+        image = nil
+    }
+
+    func simulateImageChange(to image: ClipboardImageData) {
+        changeCount += 1
+        text = nil
+        self.image = image
+    }
+}
+
+@MainActor
+private final class ImageStoreStub: ClipboardImageStoring {
+    private(set) var removedImages: [ClipboardImage] = []
+
+    func store(_ image: ClipboardImageData) throws -> ClipboardImage {
+        ClipboardImage(
+            storageIdentifier: image.contentHash,
+            contentHash: image.contentHash,
+            pixelWidth: image.pixelWidth,
+            pixelHeight: image.pixelHeight,
+            byteCount: image.data.count,
+            format: image.format
+        )
+    }
+
+    func load(_ image: ClipboardImage) throws -> Data { Data() }
+    func remove(_ image: ClipboardImage) throws {
+        removedImages.append(image)
     }
 }

@@ -7,37 +7,71 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             Form {
-                Picker(
-                    "History size",
-                    selection: Binding(
-                        get: { viewModel.historyLimit },
-                        set: viewModel.updateHistoryLimit
-                    )
-                ) {
-                    ForEach(SettingsViewModel.availableHistoryLimits, id: \.self) { limit in
-                        Text("\(limit) items").tag(limit)
+                Section("Storage") {
+                    Picker(
+                        "Saved text clips",
+                        selection: Binding(
+                            get: { viewModel.textHistoryLimit },
+                            set: viewModel.updateTextHistoryLimit
+                        )
+                    ) {
+                        ForEach(
+                            SettingsViewModel.availableTextHistoryLimits,
+                            id: \.self
+                        ) { limit in
+                            Text("\(limit) clips").tag(limit)
+                        }
+                    }
+
+                    Picker(
+                        "Saved images",
+                        selection: Binding(
+                            get: { viewModel.imageLimit },
+                            set: viewModel.updateImageLimit
+                        )
+                    ) {
+                        ForEach(SettingsViewModel.availableImageLimits, id: \.self) { limit in
+                            Text("\(limit) images").tag(limit)
+                        }
+                    }
+
+                    Picker(
+                        "Image storage",
+                        selection: Binding(
+                            get: { viewModel.imageStorageLimitInMegabytes },
+                            set: viewModel.updateImageStorageLimitInMegabytes
+                        )
+                    ) {
+                        ForEach(
+                            SettingsViewModel.availableImageStorageLimitsInMegabytes,
+                            id: \.self
+                        ) { limit in
+                            Text("\(limit) MB").tag(limit)
+                        }
                     }
                 }
 
-                Picker(
-                    "Displayed clips",
-                    selection: Binding(
-                        get: { viewModel.displayLimit },
-                        set: viewModel.updateDisplayLimit
-                    )
-                ) {
-                    ForEach(SettingsViewModel.availableDisplayLimits, id: \.self) { limit in
-                        Text("\(limit) items").tag(limit)
+                Section("Application") {
+                    Picker(
+                        "Items shown",
+                        selection: Binding(
+                            get: { viewModel.displayLimit },
+                            set: viewModel.updateDisplayLimit
+                        )
+                    ) {
+                        ForEach(SettingsViewModel.availableDisplayLimits, id: \.self) { limit in
+                            Text("\(limit) clips").tag(limit)
+                        }
                     }
-                }
 
-                Toggle(
-                    "Launch on system startup",
-                    isOn: Binding(
-                        get: { viewModel.launchAtLoginEnabled },
-                        set: viewModel.updateLaunchAtLogin
+                    Toggle(
+                        "Launch on system startup",
+                        isOn: Binding(
+                            get: { viewModel.launchAtLoginEnabled },
+                            set: viewModel.updateLaunchAtLogin
+                        )
                     )
-                )
+                }
             }
             .formStyle(.grouped)
             .navigationTitle("Settings")
@@ -97,7 +131,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 420, height: 240)
+        .frame(width: 420, height: 300)
         .alert(
             "Unable to Update Settings",
             isPresented: Binding(

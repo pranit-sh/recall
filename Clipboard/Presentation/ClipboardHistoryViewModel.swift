@@ -16,6 +16,7 @@ final class ClipboardHistoryViewModel: ObservableObject {
 
     private let monitor: ClipboardMonitor
     private let pasteboard: PasteboardWriting
+    private let imageStore: ClipboardImageStoring?
     private let popoverDismisser: PopoverDismissing
     private let activeApplicationProvider: ActiveApplicationProviding?
     private let usagePersistence: ClipboardUsagePersisting?
@@ -31,6 +32,7 @@ final class ClipboardHistoryViewModel: ObservableObject {
     init(
         monitor: ClipboardMonitor,
         pasteboard: PasteboardWriting,
+        imageStore: ClipboardImageStoring? = nil,
         popoverDismisser: PopoverDismissing,
         activeApplicationProvider: ActiveApplicationProviding? = nil,
         usagePersistence: ClipboardUsagePersisting? = nil,
@@ -47,6 +49,7 @@ final class ClipboardHistoryViewModel: ObservableObject {
             .ignoredApplicationBundleIdentifiers.sorted() ?? []
         self.monitor = monitor
         self.pasteboard = pasteboard
+        self.imageStore = imageStore
         self.popoverDismisser = popoverDismisser
         self.activeApplicationProvider = activeApplicationProvider
         self.usagePersistence = usagePersistence
@@ -64,7 +67,7 @@ final class ClipboardHistoryViewModel: ObservableObject {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let matchingItems = query.isEmpty
             ? items
-            : items.filter { $0.text.localizedCaseInsensitiveContains(query) }
+            : items.filter { $0.displayText.localizedCaseInsensitiveContains(query) }
 
         return ranker.rank(
             matchingItems,
@@ -150,9 +153,20 @@ final class ClipboardHistoryViewModel: ObservableObject {
     }
 
     func select(_ item: ClipboardItem) {
+        switch item.content {
+        case .text(let text):
+            pasteboard.writeString(text)
+        case .image(let image):
+            guard let data = try? imageStore?.load(image) else { return }
+            pasteboard.writeImage(data, format: image.format)
+        }
         recordSelection(of: item)
-        pasteboard.writeString(item.text)
         popoverDismisser.dismissPopover()
+    }
+
+    func imageData(for item: ClipboardItem) -> Data? {
+        guard let image = item.image else { return nil }
+        return try? imageStore?.load(image)
     }
 
     func ignoreCurrentApplication() {

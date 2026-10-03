@@ -5,6 +5,7 @@ import Foundation
 final class ClipboardMonitor: ObservableObject {
     private let pasteboard: PasteboardReading
     private let persistence: ClipboardHistoryPersisting?
+    private let imageStore: ClipboardImageStoring?
     private let activeApplicationProvider: ActiveApplicationProviding?
     private let privacySettings: PrivacySettings?
     private let pollInterval: TimeInterval
@@ -18,6 +19,7 @@ final class ClipboardMonitor: ObservableObject {
         pasteboard: PasteboardReading,
         history: ClipboardHistory,
         persistence: ClipboardHistoryPersisting? = nil,
+        imageStore: ClipboardImageStoring? = nil,
         activeApplicationProvider: ActiveApplicationProviding? = nil,
         privacySettings: PrivacySettings? = nil,
         pollInterval: TimeInterval = 0.5
@@ -25,6 +27,7 @@ final class ClipboardMonitor: ObservableObject {
         self.pasteboard = pasteboard
         self.history = history
         self.persistence = persistence
+        self.imageStore = imageStore
         self.activeApplicationProvider = activeApplicationProvider
         self.privacySettings = privacySettings
         self.pollInterval = pollInterval
@@ -56,12 +59,22 @@ final class ClipboardMonitor: ObservableObject {
             return
         }
 
-        guard let text = pasteboard.readString() else { return }
+        if let imageData = pasteboard.readImage(), let imageStore {
+            do {
+                let image = try imageStore.store(imageData)
+                removeImages(history.add(ClipboardItem(image: image)))
+            } catch {
+                persistenceError = error
+                return
+            }
+        } else {
+            guard let text = pasteboard.readString() else { return }
 
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedText.isEmpty else { return }
+            let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedText.isEmpty else { return }
 
-        history.add(ClipboardItem(text: trimmedText))
+            removeImages(history.add(ClipboardItem(text: trimmedText)))
+        }
 
         do {
             try persistence?.save(history.items)
@@ -72,13 +85,20 @@ final class ClipboardMonitor: ObservableObject {
     }
 
     func clearHistory() {
+        removeImages(history.items)
         history.removeAll()
 
         persistHistory()
     }
 
-    func updateHistoryLimit(_ limit: Int) {
-        history.updateLimit(limit)
+    func updateTextHistoryLimit(_ limit: Int) {
+        removeImages(history.updateTextLimit(limit))
+
+        persistHistory()
+    }
+
+    func updateImageLimits(count: Int, byteCount: Int) {
+        removeImages(history.updateImageLimits(count: count, byteCount: byteCount))
 
         persistHistory()
     }
@@ -90,6 +110,12 @@ final class ClipboardMonitor: ObservableObject {
             persistenceError = nil
         } catch {
             persistenceError = error
+        }
+    }
+
+    private func removeImages(_ items: [ClipboardItem]) {
+        for image in items.compactMap(\.image) {
+            try? imageStore?.remove(image)
         }
     }
 }

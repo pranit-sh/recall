@@ -56,7 +56,7 @@ final class SQLiteClipboardHistoryStore: ClipboardHistoryPersisting, ClipboardUs
 
     func load() throws -> [ClipboardItem] {
         let sql = """
-            SELECT id, text, created_at, last_used_at
+            SELECT id, text, created_at, last_used_at, content_type, image_metadata
             FROM clipboard_items
             ORDER BY last_used_at DESC, created_at DESC, id ASC;
             """
@@ -82,14 +82,32 @@ final class SQLiteClipboardHistoryStore: ClipboardHistoryPersisting, ClipboardUs
                     throw SQLiteStoreError.invalidStoredItem
                 }
 
-                items.append(
-                    ClipboardItem(
+                let item: ClipboardItem
+                if let contentType = sqlite3_column_text(statement, 4),
+                   String(cString: contentType) == "image" {
+                    guard let metadataText = sqlite3_column_text(statement, 5),
+                          let metadataData = String(cString: metadataText).data(using: .utf8),
+                          let image = try? JSONDecoder().decode(
+                              ClipboardImage.self,
+                              from: metadataData
+                          ) else {
+                        throw SQLiteStoreError.invalidStoredItem
+                    }
+                    item = ClipboardItem(
+                        id: identifier,
+                        image: image,
+                        createdAt: Date(timeIntervalSince1970: createdAtValue),
+                        lastUsedAt: Date(timeIntervalSince1970: lastUsedAtValue)
+                    )
+                } else {
+                    item = ClipboardItem(
                         id: identifier,
                         text: String(cString: textValue),
                         createdAt: Date(timeIntervalSince1970: createdAtValue),
                         lastUsedAt: Date(timeIntervalSince1970: lastUsedAtValue)
                     )
-                )
+                }
+                items.append(item)
             case SQLITE_DONE:
                 return items
             default:
@@ -104,12 +122,16 @@ final class SQLiteClipboardHistoryStore: ClipboardHistoryPersisting, ClipboardUs
         do {
             let statement = try prepare(
                 """
-                INSERT INTO clipboard_items (id, text, created_at, last_used_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO clipboard_items (
+                    id, text, created_at, last_used_at, content_type, image_metadata
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     text = excluded.text,
                     created_at = excluded.created_at,
-                    last_used_at = excluded.last_used_at;
+                    last_used_at = excluded.last_used_at,
+                    content_type = excluded.content_type,
+                    image_metadata = excluded.image_metadata;
                 """
             )
             defer { sqlite3_finalize(statement) }
@@ -122,6 +144,18 @@ final class SQLiteClipboardHistoryStore: ClipboardHistoryPersisting, ClipboardUs
                 try bind(item.text, to: 2, in: statement)
                 sqlite3_bind_double(statement, 3, item.createdAt.timeIntervalSince1970)
                 sqlite3_bind_double(statement, 4, item.lastUsedAt.timeIntervalSince1970)
+                switch item.content {
+                case .text:
+                    try bind("text", to: 5, in: statement)
+                    sqlite3_bind_null(statement, 6)
+                case .image(let image):
+                    try bind("image", to: 5, in: statement)
+                    let metadata = try JSONEncoder().encode(image)
+                    guard let metadataText = String(data: metadata, encoding: .utf8) else {
+                        throw SQLiteStoreError.invalidStoredItem
+                    }
+                    try bind(metadataText, to: 6, in: statement)
+                }
 
                 guard sqlite3_step(statement) == SQLITE_DONE else {
                     throw SQLiteStoreError.statementFailed(errorMessage)
@@ -341,6 +375,22 @@ final class SQLiteClipboardHistoryStore: ClipboardHistoryPersisting, ClipboardUs
         }
     }
 
+    func loadImageLimit() throws -> Int? {
+        try loadPositiveIntegerSetting(forKey: "image_limit")
+    }
+
+    func saveImageLimit(_ limit: Int) throws {
+        try savePositiveIntegerSetting(limit, forKey: "image_limit")
+    }
+
+    func loadImageStorageLimitInMegabytes() throws -> Int? {
+        try loadPositiveIntegerSetting(forKey: "image_storage_limit_mb")
+    }
+
+    func saveImageStorageLimitInMegabytes(_ limit: Int) throws {
+        try savePositiveIntegerSetting(limit, forKey: "image_storage_limit_mb")
+    }
+
     private func migrate() throws {
         try execute("PRAGMA foreign_keys = ON;")
         try execute(
@@ -353,6 +403,14 @@ final class SQLiteClipboardHistoryStore: ClipboardHistoryPersisting, ClipboardUs
             );
             """
         )
+        if try !columnExists("content_type", in: "clipboard_items") {
+            try execute(
+                "ALTER TABLE clipboard_items ADD COLUMN content_type TEXT NOT NULL DEFAULT 'text';"
+            )
+        }
+        if try !columnExists("image_metadata", in: "clipboard_items") {
+            try execute("ALTER TABLE clipboard_items ADD COLUMN image_metadata TEXT;")
+        }
         try execute(
             """
             CREATE INDEX IF NOT EXISTS clipboard_items_last_used_at
@@ -391,7 +449,20 @@ final class SQLiteClipboardHistoryStore: ClipboardHistoryPersisting, ClipboardUs
             );
             """
         )
-        try execute("PRAGMA user_version = 4;")
+        try execute("PRAGMA user_version = 5;")
+    }
+
+    private func columnExists(_ column: String, in table: String) throws -> Bool {
+        let statement = try prepare("PRAGMA table_info(\(table));")
+        defer { sqlite3_finalize(statement) }
+
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let name = sqlite3_column_text(statement, 1) else { continue }
+            if String(cString: name) == column {
+                return true
+            }
+        }
+        return false
     }
 
     private func removeItemsMissing(from items: [ClipboardItem]) throws {
@@ -409,6 +480,47 @@ final class SQLiteClipboardHistoryStore: ClipboardHistoryPersisting, ClipboardUs
         for (offset, item) in items.enumerated() {
             try bind(item.id.uuidString, to: Int32(offset + 1), in: statement)
         }
+
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw SQLiteStoreError.statementFailed(errorMessage)
+        }
+    }
+
+    private func loadPositiveIntegerSetting(forKey key: String) throws -> Int? {
+        let statement = try prepare("SELECT value FROM app_settings WHERE key = ?;")
+        defer { sqlite3_finalize(statement) }
+        try bind(key, to: 1, in: statement)
+
+        switch sqlite3_step(statement) {
+        case SQLITE_ROW:
+            guard let value = sqlite3_column_text(statement, 0),
+                  let setting = Int(String(cString: value)),
+                  setting > 0 else {
+                throw SQLiteStoreError.invalidStoredItem
+            }
+            return setting
+        case SQLITE_DONE:
+            return nil
+        default:
+            throw SQLiteStoreError.statementFailed(errorMessage)
+        }
+    }
+
+    private func savePositiveIntegerSetting(_ value: Int, forKey key: String) throws {
+        guard value > 0 else {
+            throw SQLiteStoreError.invalidSetting
+        }
+
+        let statement = try prepare(
+            """
+            INSERT INTO app_settings (key, value)
+            VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+        try bind(key, to: 1, in: statement)
+        try bind(String(value), to: 2, in: statement)
 
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw SQLiteStoreError.statementFailed(errorMessage)

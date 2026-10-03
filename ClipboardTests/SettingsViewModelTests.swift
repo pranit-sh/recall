@@ -14,10 +14,10 @@ final class SettingsViewModelTests: XCTestCase {
             settingsPersistence: persistence
         )
 
-        viewModel.updateHistoryLimit(50)
+        viewModel.updateTextHistoryLimit(50)
 
-        XCTAssertEqual(viewModel.historyLimit, 50)
-        XCTAssertEqual(monitor.history.limit, 50)
+        XCTAssertEqual(viewModel.textHistoryLimit, 50)
+        XCTAssertEqual(monitor.history.textLimit, 50)
         XCTAssertEqual(monitor.history.items.count, 50)
         XCTAssertEqual(persistence.savedHistoryLimit, 50)
     }
@@ -35,6 +35,36 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.displayLimit, 25)
         XCTAssertEqual(appliedDisplayLimit, 25)
         XCTAssertEqual(persistence.savedDisplayLimit, 25)
+    }
+
+    func testUpdatingImageLimitAppliesAndPersistsImmediately() {
+        let persistence = ApplicationSettingsPersistenceStub()
+        let monitor = ClipboardMonitor(
+            pasteboard: SettingsPasteboardStub(),
+            history: ClipboardHistory(limit: 100)
+        )
+        let viewModel = makeViewModel(monitor: monitor, settingsPersistence: persistence)
+
+        viewModel.updateImageLimit(20)
+
+        XCTAssertEqual(viewModel.imageLimit, 20)
+        XCTAssertEqual(monitor.history.imageLimit, 20)
+        XCTAssertEqual(persistence.savedImageLimit, 20)
+    }
+
+    func testUpdatingImageStorageLimitAppliesAndPersistsImmediately() {
+        let persistence = ApplicationSettingsPersistenceStub()
+        let monitor = ClipboardMonitor(
+            pasteboard: SettingsPasteboardStub(),
+            history: ClipboardHistory(limit: 100)
+        )
+        let viewModel = makeViewModel(monitor: monitor, settingsPersistence: persistence)
+
+        viewModel.updateImageStorageLimitInMegabytes(200)
+
+        XCTAssertEqual(viewModel.imageStorageLimitInMegabytes, 200)
+        XCTAssertEqual(monitor.history.imageByteLimit, 200 * 1_024 * 1_024)
+        XCTAssertEqual(persistence.savedImageStorageLimitInMegabytes, 200)
     }
 
     func testLaunchAtLoginUpdateUsesSystemState() {
@@ -112,6 +142,8 @@ final class SettingsViewModelTests: XCTestCase {
 private final class ApplicationSettingsPersistenceStub: ApplicationSettingsPersisting {
     private(set) var savedHistoryLimit: Int?
     private(set) var savedDisplayLimit: Int?
+    private(set) var savedImageLimit: Int?
+    private(set) var savedImageStorageLimitInMegabytes: Int?
 
     func loadHistoryLimit() throws -> Int? {
         nil
@@ -127,6 +159,18 @@ private final class ApplicationSettingsPersistenceStub: ApplicationSettingsPersi
 
     func saveDisplayLimit(_ limit: Int) throws {
         savedDisplayLimit = limit
+    }
+
+    func loadImageLimit() throws -> Int? { nil }
+
+    func saveImageLimit(_ limit: Int) throws {
+        savedImageLimit = limit
+    }
+
+    func loadImageStorageLimitInMegabytes() throws -> Int? { nil }
+
+    func saveImageStorageLimitInMegabytes(_ limit: Int) throws {
+        savedImageStorageLimitInMegabytes = limit
     }
 }
 

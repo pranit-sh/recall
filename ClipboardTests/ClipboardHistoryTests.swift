@@ -52,6 +52,40 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertTrue(history.items.isEmpty)
     }
 
+    func testImageHistoryKeepsOnlyTenMostRecentImages() {
+        var history = ClipboardHistory(limit: 20)
+
+        for index in 0..<12 {
+            history.add(makeImageItem(hash: "image-\(index)"))
+        }
+
+        XCTAssertEqual(history.items.compactMap(\.image).count, 10)
+        XCTAssertEqual(history.items.first?.image?.contentHash, "image-11")
+        XCTAssertEqual(history.items.last?.image?.contentHash, "image-2")
+    }
+
+    func testImageHistoryRespectsTotalByteLimit() {
+        var history = ClipboardHistory(limit: 10, imageByteLimit: 100)
+
+        history.add(makeImageItem(hash: "first", byteCount: 60))
+        history.add(makeImageItem(hash: "second", byteCount: 60))
+
+        XCTAssertEqual(history.items.compactMap(\.image).map(\.contentHash), ["second"])
+    }
+
+    func testTextAndImageCountsAreLimitedIndependently() {
+        var history = ClipboardHistory(limit: 1, imageLimit: 2)
+
+        history.add(ClipboardItem(text: "First"))
+        history.add(makeImageItem(hash: "first-image"))
+        history.add(ClipboardItem(text: "Second"))
+        history.add(makeImageItem(hash: "second-image"))
+
+        XCTAssertEqual(history.items.filter { $0.image == nil }.map(\.text), ["Second"])
+        XCTAssertEqual(history.items.compactMap(\.image).count, 2)
+        XCTAssertEqual(history.items.count, 3)
+    }
+
     func testRestoredItemsAreSortedAndLimited() {
         let oldestItem = ClipboardItem(
             text: "Oldest",
@@ -86,9 +120,22 @@ final class ClipboardHistoryTests: XCTestCase {
         history.add(secondItem)
         history.add(thirdItem)
 
-        history.updateLimit(2)
+        history.updateTextLimit(2)
 
-        XCTAssertEqual(history.limit, 2)
+        XCTAssertEqual(history.textLimit, 2)
         XCTAssertEqual(history.items, [thirdItem, secondItem])
+    }
+
+    private func makeImageItem(hash: String, byteCount: Int = 1) -> ClipboardItem {
+        ClipboardItem(
+            image: ClipboardImage(
+                storageIdentifier: "\(hash).png",
+                contentHash: hash,
+                pixelWidth: 10,
+                pixelHeight: 10,
+                byteCount: byteCount,
+                format: .png
+            )
+        )
     }
 }
