@@ -5,15 +5,15 @@ A native, local-only clipboard manager for macOS.
 Recall keeps recently copied text close at hand from the menu bar. History,
 settings, and contextual usage data remain on the Mac.
 
+<img src="docs/images/recall-popover.png" alt="Recall clipboard history popover" width="420">
+
 ## Features
 
-- Searchable clipboard history with MRU ordering and deduplication
-- Keyboard-first selection and navigation
+- Searchable, deduplicated clipboard history
+- Keyboard-first navigation
 - Context-aware ranking for the active application
-- Individual deletion and configurable history size
-- Per-application privacy controls
-- Launch at login
-- No accounts, analytics, cloud sync, or network access
+- Configurable history size and ignored applications
+- Launch at login with fully local storage
 
 ## Requirements
 
@@ -24,8 +24,6 @@ settings, and contextual usage data remain on the Mac.
 
 Open `Clipboard.xcodeproj` in Xcode, select the `Clipboard` scheme, and run the
 app. Recall appears only in the menu bar.
-
-Development is split into small, testable steps in [MILESTONES.md](MILESTONES.md).
 
 ## Project structure
 
@@ -55,8 +53,8 @@ open DerivedData/Build/Products/Debug/Recall.app
 
 ## Releases
 
-Recall is currently distributed as source code. See [RELEASING.md](RELEASING.md)
-for the release process and [CHANGELOG.md](CHANGELOG.md) for version history.
+Recall is currently distributed as source code. See [CHANGELOG.md](CHANGELOG.md)
+for version history.
 
 ## Privacy
 

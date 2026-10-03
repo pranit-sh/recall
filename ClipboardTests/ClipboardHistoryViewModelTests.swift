@@ -286,7 +286,7 @@ final class ClipboardHistoryViewModelTests: XCTestCase {
 
         viewModel.toggleCurrentApplicationPrivacy()
         XCTAssertTrue(viewModel.isCurrentApplicationIgnored)
-        XCTAssertEqual(viewModel.currentApplicationPrivacyActionTitle, "Allow Private App")
+        XCTAssertEqual(viewModel.currentApplicationPrivacyActionTitle, "Ignore Private App")
 
         viewModel.toggleCurrentApplicationPrivacy()
         XCTAssertFalse(viewModel.isCurrentApplicationIgnored)
@@ -314,6 +314,22 @@ final class ClipboardHistoryViewModelTests: XCTestCase {
             viewModel.currentApplicationPrivacyActionTitle,
             "Ignore com.example.unknown"
         )
+    }
+
+    func testSearchPromptDescribesSearchableHistorySize() {
+        let pasteboard = ViewModelPasteboardStub()
+        let items = (1...3).map { ClipboardItem(text: "Item \($0)") }
+        let viewModel = ClipboardHistoryViewModel(
+            monitor: ClipboardMonitor(
+                pasteboard: pasteboard,
+                history: ClipboardHistory(limit: 10, items: items)
+            ),
+            pasteboard: pasteboard,
+            popoverDismisser: ViewModelPopoverDismisserStub(),
+            displayLimit: 2
+        )
+
+        XCTAssertEqual(viewModel.searchPrompt, "Search 3 items")
     }
 
     func testSelectionInIgnoredApplicationDoesNotRecordUsage() {

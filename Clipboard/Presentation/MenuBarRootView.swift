@@ -84,7 +84,7 @@ struct MenuBarRootView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
-            TextField("Search", text: $viewModel.searchText)
+            TextField(viewModel.searchPrompt, text: $viewModel.searchText)
                 .textFieldStyle(.plain)
                 .focused($isSearchFocused)
                 .accessibilityLabel("Search clipboard history")
@@ -110,7 +110,8 @@ struct MenuBarRootView: View {
             PopoverActionRow(
                 title: viewModel.currentApplicationPrivacyActionTitle,
                 isEnabled: viewModel.canConfigureCurrentApplication,
-                isKeyboardHighlighted: selectedAction == .privacy
+                isKeyboardHighlighted: selectedAction == .privacy,
+                showsCheckmark: viewModel.isCurrentApplicationIgnored
             ) {
                 viewModel.toggleCurrentApplicationPrivacy()
             } onHoverChange: { isHovered in
@@ -235,7 +236,7 @@ struct MenuBarRootView: View {
             NSApp.activate()
 
             let alert = NSAlert()
-            alert.messageText = "Clear Clipboard History?"
+            alert.messageText = "Clear History?"
             alert.informativeText = "This removes all saved clipboard items."
             alert.alertStyle = .warning
             alert.addButton(withTitle: "Clear")
@@ -322,6 +323,7 @@ private struct PopoverActionRow: View {
     let title: String
     var isEnabled = true
     var isKeyboardHighlighted = false
+    var showsCheckmark = false
     let action: () -> Void
     var onHoverChange: (Bool) -> Void = { _ in }
 
@@ -333,9 +335,17 @@ private struct PopoverActionRow: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .lineLimit(1)
-                .truncationMode(.tail)
+            HStack(spacing: 8) {
+                Text(title)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if showsCheckmark {
+                    Image(systemName: "checkmark")
+                        .accessibilityHidden(true)
+                }
+            }
                 .foregroundStyle(
                     isHighlighted
                         ? Color(nsColor: .alternateSelectedControlTextColor)
@@ -354,6 +364,7 @@ private struct PopoverActionRow: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
+        .accessibilityValue(showsCheckmark ? "On" : "Off")
         .accessibilityAddTraits(isKeyboardHighlighted ? .isSelected : [])
         .onHover {
             isHovered = isEnabled && $0

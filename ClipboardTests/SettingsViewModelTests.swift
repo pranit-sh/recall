@@ -30,11 +30,11 @@ final class SettingsViewModelTests: XCTestCase {
             displayLimitDidChange: { appliedDisplayLimit = $0 }
         )
 
-        viewModel.updateDisplayLimit(10)
+        viewModel.updateDisplayLimit(25)
 
-        XCTAssertEqual(viewModel.displayLimit, 10)
-        XCTAssertEqual(appliedDisplayLimit, 10)
-        XCTAssertEqual(persistence.savedDisplayLimit, 10)
+        XCTAssertEqual(viewModel.displayLimit, 25)
+        XCTAssertEqual(appliedDisplayLimit, 25)
+        XCTAssertEqual(persistence.savedDisplayLimit, 25)
     }
 
     func testLaunchAtLoginUpdateUsesSystemState() {

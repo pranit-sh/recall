@@ -3,25 +3,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var viewModel: SettingsViewModel
-    @State private var selectedTab = SettingsTab.general
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("Settings section", selection: $selectedTab) {
-                Label("General", systemImage: "gearshape")
-                    .tag(SettingsTab.general)
-                Label("Ignored Apps", systemImage: "eye.slash")
-                    .tag(SettingsTab.ignoredApps)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .accessibilityLabel("Settings section")
-            .frame(width: 240)
-            .padding(.vertical, 12)
-
-            switch selectedTab {
-            case .general:
-                Form {
+        TabView {
+            Form {
                 Picker(
                     "History size",
                     selection: Binding(
@@ -47,61 +32,72 @@ struct SettingsView: View {
                 }
 
                 Toggle(
-                    "Launch at login",
+                    "Launch on system startup",
                     isOn: Binding(
                         get: { viewModel.launchAtLoginEnabled },
                         set: viewModel.updateLaunchAtLogin
                     )
                 )
-                }
-                .formStyle(.grouped)
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Settings")
+            .tabItem {
+                Label("General", systemImage: "gearshape")
+            }
 
-            case .ignoredApps:
-                Form {
-                    if viewModel.ignoredApplications.isEmpty {
-                        Text("No ignored apps")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 20)
-                    } else {
-                        Section {
-                            ForEach(viewModel.ignoredApplications) { application in
-                                Toggle(
-                                    isOn: Binding(
-                                        get: { true },
-                                        set: { isIgnored in
-                                            if !isIgnored {
-                                                viewModel.allowApplication(application)
-                                            }
+            Form {
+                if viewModel.ignoredApplications.isEmpty {
+                    Text("No ignored apps")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 20)
+                } else {
+                    Section {
+                        ForEach(viewModel.ignoredApplications) { application in
+                            Toggle(
+                                isOn: Binding(
+                                    get: { true },
+                                    set: { isIgnored in
+                                        if !isIgnored {
+                                            viewModel.allowApplication(application)
                                         }
-                                    )
-                                ) {
-                                    HStack(spacing: 8) {
-                                        ApplicationIcon(
-                                            bundleIdentifier: application.bundleIdentifier
-                                        )
-
-                                        Text(application.displayName)
                                     }
-                                    .padding(.leading, 4)
-                                }
-                                .toggleStyle(.checkbox)
-                                .help("Allow clipboard history from \(application.displayName)")
-                                .accessibilityHint(
-                                    "Turn off to include this app in clipboard history"
                                 )
+                            ) {
+                                HStack(spacing: 8) {
+                                    ApplicationIcon(
+                                        bundleIdentifier: application.bundleIdentifier
+                                    )
+
+                                    Text(application.displayName)
+                                }
+                                .padding(.leading, 4)
                             }
-                        } header: {
-                            Text("Apps excluded from clipboard history")
+                            .toggleStyle(.checkbox)
+                            .help("Allow clipboard history from \(application.displayName)")
+                            .accessibilityHint(
+                                "Turn off to include this app in clipboard history"
+                            )
                         }
+                    } header: {
+                        Text("Apps excluded from clipboard history")
                     }
                 }
-                .formStyle(.grouped)
             }
+            .formStyle(.grouped)
+            .navigationTitle("Settings")
+            .tabItem {
+                Label("Ignored Apps", systemImage: "eye.slash")
+            }
+
+            AboutSettingsView()
+                .navigationTitle("Settings")
+                .tabItem {
+                    Label("About", systemImage: "info.circle")
+                }
         }
-        .navigationTitle("Settings")
-        .frame(width: 440, height: 300)
+        .frame(width: 420, height: 240)
         .alert(
             "Unable to Update Settings",
             isPresented: Binding(
@@ -122,9 +118,52 @@ struct SettingsView: View {
     }
 }
 
-private enum SettingsTab: Hashable {
-    case general
-    case ignoredApps
+private struct AboutSettingsView: View {
+    private let repositoryURL = URL(string: "https://github.com/pranit-sh/recall")!
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 56, height: 56)
+                .accessibilityHidden(true)
+
+            Text("Recall")
+                .font(.title2.weight(.semibold))
+
+            Text(versionDescription)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Text("A native, local-only clipboard manager for macOS.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Spacer(minLength: 8)
+
+            HStack {
+                Text("Copyright 2026 Pranit Deshmukh")
+                    .foregroundStyle(.tertiary)
+
+                Spacer()
+
+                Link(destination: repositoryURL) {
+                    Label("GitHub", systemImage: "arrow.up.right.square")
+                }
+            }
+                .font(.caption)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(16)
+    }
+
+    private var versionDescription: String {
+        let version = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "Unknown"
+        return "Version \(version)"
+    }
 }
 
 private struct ApplicationIcon: View {

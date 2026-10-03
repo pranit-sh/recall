@@ -10,7 +10,7 @@ struct IgnoredApplicationSetting: Identifiable, Equatable {
 @MainActor
 final class SettingsViewModel: ObservableObject {
     static let availableHistoryLimits = [50, 100, 200]
-    static let availableDisplayLimits = [5, 10, 15, 20]
+    static let availableDisplayLimits = [15, 20, 25]
 
     @Published private(set) var historyLimit: Int
     @Published private(set) var displayLimit: Int

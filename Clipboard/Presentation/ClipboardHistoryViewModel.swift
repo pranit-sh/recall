@@ -82,6 +82,10 @@ final class ClipboardHistoryViewModel: ObservableObject {
         Array(filteredItems.prefix(displayLimit))
     }
 
+    var searchPrompt: String {
+        "Search \(items.count) \(items.count == 1 ? "item" : "items")"
+    }
+
     var canIgnoreCurrentApplication: Bool {
         guard let activeApplicationBundleIdentifier else { return false }
         return privacySettings?.isIgnored(activeApplicationBundleIdentifier) == false
@@ -97,11 +101,10 @@ final class ClipboardHistoryViewModel: ObservableObject {
     }
 
     var currentApplicationPrivacyActionTitle: String {
-        let action = isCurrentApplicationIgnored ? "Allow" : "Ignore"
         let application = activeApplicationDisplayName
             ?? activeApplicationBundleIdentifier
             ?? "Current Application"
-        return "\(action) \(application)"
+        return "Ignore \(application)"
     }
 
     func prepareForPresentation() {
