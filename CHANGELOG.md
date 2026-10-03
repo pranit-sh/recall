@@ -2,6 +2,21 @@
 
 All notable changes to Recall are documented in this file.
 
+## 0.4.0 - 2026-10-04
+
+### Added
+
+- Background update availability checks through GitHub Releases when Settings opens.
+- Side previews for truncated and multiline text clips.
+
+### Changed
+
+- Made image items searchable with an `IMAGE` label.
+- Moved image dimensions to trailing metadata in clipboard rows.
+- Unified text and image hover previews with the same delay and full-row activation.
+- Replaced the About tab with a global Settings footer containing version, author,
+  repository, and update information.
+
 ## 0.3.0 - 2026-10-03
 
 ### Added

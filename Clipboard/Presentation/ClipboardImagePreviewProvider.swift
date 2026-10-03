@@ -46,6 +46,7 @@ final class ClipboardImagePreviewProvider: ClipboardImagePreviewProviding {
 @MainActor
 protocol ClipboardImagePreviewPresenting: AnyObject {
     func presentPreview(for image: ClipboardImage)
+    func presentPreview(for text: String)
     func dismissPreview()
 }
 
@@ -72,6 +73,28 @@ final class ClipboardImagePreviewController: ClipboardImagePreviewPresenting {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
         )
         let panelSize = CGSize(width: previewSize.width + 12, height: previewSize.height + 12)
+        present(contentView, panelSize: panelSize)
+    }
+
+    func presentPreview(for text: String) {
+        let textWidth: CGFloat = 300
+        let textHeight = fittedHeight(for: text, width: textWidth)
+        let contentView = NSHostingView(
+            rootView: Text(text)
+                .font(.system(size: NSFont.systemFontSize))
+                .lineLimit(8)
+                .frame(width: textWidth, height: textHeight, alignment: .topLeading)
+                .padding(8)
+                .background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        )
+        present(
+            contentView,
+            panelSize: CGSize(width: textWidth + 16, height: textHeight + 16)
+        )
+    }
+
+    private func present(_ contentView: NSView, panelSize: CGSize) {
         let panel = panel ?? makePanel()
         panel.contentView = contentView
         panel.setContentSize(panelSize)
@@ -109,6 +132,17 @@ final class ClipboardImagePreviewController: ClipboardImagePreviewPresenting {
             1
         )
         return CGSize(width: image.size.width * scale, height: image.size.height * scale)
+    }
+
+    private func fittedHeight(for text: String, width: CGFloat) -> CGFloat {
+        let font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        let bounds = (text as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font]
+        )
+        let maximumHeight = ceil(font.boundingRectForFont.height * 8)
+        return min(ceil(bounds.height), maximumHeight)
     }
 
     private func origin(for panelSize: CGSize) -> CGPoint {

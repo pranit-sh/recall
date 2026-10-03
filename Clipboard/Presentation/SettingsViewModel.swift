@@ -1,10 +1,19 @@
 import Combine
+import Foundation
 
 struct IgnoredApplicationSetting: Identifiable, Equatable {
     let bundleIdentifier: String
     let displayName: String
 
     var id: String { bundleIdentifier }
+}
+
+enum UpdateCheckStatus: Equatable {
+    case idle
+    case checking
+    case upToDate
+    case updateAvailable(AppRelease)
+    case failed
 }
 
 @MainActor
@@ -20,13 +29,17 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var imageStorageLimitInMegabytes: Int
     @Published private(set) var launchAtLoginEnabled: Bool
     @Published private(set) var ignoredApplications: [IgnoredApplicationSetting] = []
+    @Published private(set) var updateStatus: UpdateCheckStatus = .idle
     @Published var errorMessage: String?
+
+    let currentVersion: String
 
     private let monitor: ClipboardMonitor
     private let settingsPersistence: ApplicationSettingsPersisting?
     private let privacySettings: PrivacySettings
     private let applicationProvider: ActiveApplicationProviding
     private let launchAtLoginManager: LaunchAtLoginManaging
+    private let releaseChecker: any AppReleaseChecking
     private let displayLimitDidChange: (Int) -> Void
     private var privacySubscription: AnyCancellable?
 
@@ -36,6 +49,10 @@ final class SettingsViewModel: ObservableObject {
         privacySettings: PrivacySettings,
         applicationProvider: ActiveApplicationProviding,
         launchAtLoginManager: LaunchAtLoginManaging,
+        releaseChecker: any AppReleaseChecking,
+        currentVersion: String = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "Unknown",
         displayLimit: Int = 20,
         displayLimitDidChange: @escaping (Int) -> Void = { _ in }
     ) {
@@ -44,6 +61,8 @@ final class SettingsViewModel: ObservableObject {
         self.privacySettings = privacySettings
         self.applicationProvider = applicationProvider
         self.launchAtLoginManager = launchAtLoginManager
+        self.releaseChecker = releaseChecker
+        self.currentVersion = currentVersion
         self.displayLimitDidChange = displayLimitDidChange
         textHistoryLimit = monitor.history.textLimit
         self.displayLimit = Self.availableDisplayLimits.contains(displayLimit) ? displayLimit : 20
@@ -56,6 +75,24 @@ final class SettingsViewModel: ObservableObject {
             .sink { [weak self] bundleIdentifiers in
                 self?.refreshIgnoredApplications(from: bundleIdentifiers)
             }
+    }
+
+    func checkForUpdates() async {
+        updateStatus = .checking
+
+        do {
+            let release = try await releaseChecker.latestRelease()
+            guard !Task.isCancelled else { return }
+
+            updateStatus = release.version.compare(
+                currentVersion,
+                options: [.numeric, .caseInsensitive]
+            ) == .orderedDescending ? .updateAvailable(release) : .upToDate
+        } catch is CancellationError {
+            updateStatus = .idle
+        } catch {
+            updateStatus = .failed
+        }
     }
 
     func updateTextHistoryLimit(_ limit: Int) {

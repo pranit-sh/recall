@@ -5,17 +5,19 @@ A native, local-only clipboard manager for macOS.
 Recall keeps recently copied text and images close at hand from the menu bar.
 History, settings, image files, and contextual usage data remain on the Mac.
 
-<img src="docs/images/recall-popover.png" alt="Recall clipboard history popover" width="420">
+<img src="docs/images/recall-popover.png" alt="Recall clipboard history with image hover preview" width="720">
 
 ## Features
 
 - Searchable, deduplicated text and image history
-- Compact image rows with dimensions and hover previews
+- Compact image rows with searchable labels, metadata, and hover previews
+- Side previews for truncated and multiline text
 - Keyboard-first navigation
 - Context-aware ranking for the active application
 - Independent text, image-count, and image-storage limits
 - Configurable displayed-item count and ignored applications
 - Launch at login with fully local storage
+- Background update availability checks through GitHub Releases
 
 ## Requirements
 
@@ -63,9 +65,10 @@ for version history.
 
 ## Privacy
 
-Recall does not send clipboard contents or usage data off-device. Ignored
-applications can be configured in Settings, and saved history can be cleared at
-any time.
+Recall does not send clipboard contents or usage data off-device. Opening
+Settings makes an HTTPS request to GitHub to check the latest release version;
+the request contains no clipboard data. Ignored applications can be configured
+in Settings, and saved history can be cleared at any time.
 
 ## License
 

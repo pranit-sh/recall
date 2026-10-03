@@ -95,6 +95,20 @@ final class ClipboardHistoryViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.filteredItems, [imageItem])
     }
 
+    func testSearchMatchesImagePrefix() {
+        let pasteboard = ViewModelPasteboardStub()
+        let textItem = ClipboardItem(text: "Document")
+        let imageItem = ClipboardItem(image: makeViewModelImage())
+        let viewModel = makeViewModel(
+            history: ClipboardHistory(limit: 10, items: [textItem, imageItem]),
+            pasteboard: pasteboard
+        )
+
+        viewModel.searchText = "image"
+
+        XCTAssertEqual(viewModel.filteredItems, [imageItem])
+    }
+
     func testDisplayLimitCapsResultsWithoutHidingSearchMatches() {
         let pasteboard = ViewModelPasteboardStub()
         var history = ClipboardHistory(limit: 10)

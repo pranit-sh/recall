@@ -69,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             privacySettings: privacySettings,
             applicationProvider: activeApplicationProvider,
             launchAtLoginManager: SystemLaunchAtLoginManager(),
+            releaseChecker: GitHubReleaseChecker(),
             displayLimit: displayLimit,
             displayLimitDidChange: historyViewModel.updateDisplayLimit
         )

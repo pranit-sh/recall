@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+private let clipboardPreviewDelay: Duration = .milliseconds(300)
+
 struct MenuBarRootView: View {
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var viewModel: ClipboardHistoryViewModel
@@ -301,22 +303,31 @@ private struct ClipboardHistoryRow: View {
     let action: () -> Void
     let onHoverChange: (Bool) -> Void
     @State private var previewTask: Task<Void, Never>?
+    @State private var isTextTruncated = false
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 7) {
-                if item.image != nil {
+                if let image = item.image {
                     Image(systemName: "photo")
                         .frame(width: 14)
                         .accessibilityHidden(true)
-                }
 
-                TruncatingRowText(
-                    text: item.displayText,
-                    showsHelpWhenTruncated: item.image == nil,
-                    color: foregroundColor
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("IMAGE")
+
+                    Spacer(minLength: 8)
+
+                    Text(image.dimensionsText)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(metadataColor)
+                } else {
+                    TruncatingRowText(
+                        text: item.displayText,
+                        showsHelpWhenTruncated: true,
+                        color: foregroundColor
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .foregroundStyle(foregroundColor)
             .padding(.horizontal, 10)
@@ -328,6 +339,9 @@ private struct ClipboardHistoryRow: View {
                     : Color.clear,
                 in: RoundedRectangle(cornerRadius: 6)
             )
+        }
+        .onPreferenceChange(TextTruncationPreferenceKey.self) {
+            isTextTruncated = $0
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -354,19 +368,29 @@ private struct ClipboardHistoryRow: View {
             : Color.primary
     }
 
+    private var metadataColor: Color {
+        isHighlighted
+            ? Color(nsColor: .alternateSelectedControlTextColor).opacity(0.8)
+            : Color(nsColor: .secondaryLabelColor)
+    }
+
     private func updatePreview(isHovered: Bool) {
         previewTask?.cancel()
         previewTask = nil
 
-        guard isHovered, let image = item.image else {
+        guard isHovered else {
             imagePreviewPresenter?.dismissPreview()
             return
         }
 
         previewTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(300))
+            try? await Task.sleep(for: clipboardPreviewDelay)
             guard !Task.isCancelled else { return }
-            imagePreviewPresenter?.presentPreview(for: image)
+            if let image = item.image {
+                imagePreviewPresenter?.presentPreview(for: image)
+            } else if isTextTruncated {
+                imagePreviewPresenter?.presentPreview(for: item.displayText)
+            }
         }
     }
 }
@@ -380,14 +404,7 @@ private struct TruncatingRowText: View {
     @State private var intrinsicWidth: CGFloat = 0
 
     var body: some View {
-        Group {
-            if showsHelpWhenTruncated && intrinsicWidth > availableWidth + 1 {
-                label.help(text)
-            } else {
-                label
-            }
-        }
-        .background {
+        label.background {
             GeometryReader { proxy in
                 Color.clear.preference(
                     key: AvailableTextWidthPreferenceKey.self,
@@ -415,6 +432,10 @@ private struct TruncatingRowText: View {
         .onPreferenceChange(IntrinsicTextWidthPreferenceKey.self) {
             intrinsicWidth = $0
         }
+        .preference(
+            key: TextTruncationPreferenceKey.self,
+            value: showsHelpWhenTruncated && isTruncated
+        )
     }
 
     private var label: some View {
@@ -422,6 +443,19 @@ private struct TruncatingRowText: View {
             .lineLimit(1)
             .truncationMode(.tail)
             .foregroundStyle(color)
+    }
+
+    private var isTruncated: Bool {
+        text.rangeOfCharacter(from: .newlines) != nil
+            || intrinsicWidth > availableWidth + 1
+    }
+}
+
+private struct TextTruncationPreferenceKey: PreferenceKey {
+    static let defaultValue = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
     }
 }
 

@@ -67,7 +67,7 @@ final class ClipboardHistoryViewModel: ObservableObject {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let matchingItems = query.isEmpty
             ? items
-            : items.filter { $0.displayText.localizedCaseInsensitiveContains(query) }
+            : items.filter { $0.searchableText.localizedCaseInsensitiveContains(query) }
 
         return ranker.rank(
             matchingItems,

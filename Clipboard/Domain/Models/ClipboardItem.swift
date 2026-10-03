@@ -8,8 +8,12 @@ struct ClipboardImage: Equatable, Codable {
     let byteCount: Int
     let format: ClipboardImageFormat
 
-    var displayText: String {
+    var dimensionsText: String {
         return "\(pixelWidth) × \(pixelHeight)"
+    }
+
+    var displayText: String {
+        return "IMAGE \(dimensionsText)"
     }
 }
 
@@ -47,6 +51,15 @@ struct ClipboardItem: Identifiable, Equatable {
     }
 
     var displayText: String {
+        switch content {
+        case .text(let text):
+            return text
+        case .image(let image):
+            return image.displayText
+        }
+    }
+
+    var searchableText: String {
         switch content {
         case .text(let text):
             return text

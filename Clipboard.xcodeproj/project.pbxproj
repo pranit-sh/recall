@@ -46,6 +46,8 @@
 		A10000000000000000000039 /* ClipboardImageStoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* ClipboardImageStoring.swift */; };
 		A10000000000000000000040 /* FileClipboardImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* FileClipboardImageStore.swift */; };
 		A10000000000000000000041 /* ClipboardImagePreviewProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* ClipboardImagePreviewProvider.swift */; };
+		A10000000000000000000042 /* AppReleaseChecking.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* AppReleaseChecking.swift */; };
+		A10000000000000000000043 /* GitHubReleaseChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* GitHubReleaseChecker.swift */; };
 		B10000000000000000000001 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* AppIcon.icon */; };
 /* End PBXBuildFile section */
 
@@ -101,6 +103,8 @@
 		A20000000000000000000041 /* ClipboardImageStoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardImageStoring.swift; sourceTree = "<group>"; };
 		A20000000000000000000042 /* FileClipboardImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileClipboardImageStore.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* ClipboardImagePreviewProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardImagePreviewProvider.swift; sourceTree = "<group>"; };
+		A20000000000000000000044 /* AppReleaseChecking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReleaseChecking.swift; sourceTree = "<group>"; };
+		A20000000000000000000045 /* GitHubReleaseChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubReleaseChecker.swift; sourceTree = "<group>"; };
 		B20000000000000000000001 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -224,6 +228,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000028 /* ActiveApplicationProviding.swift */,
+				A20000000000000000000044 /* AppReleaseChecking.swift */,
 				A20000000000000000000033 /* ApplicationSettingsPersisting.swift */,
 				A20000000000000000000021 /* ClipboardHistoryPersisting.swift */,
 				A20000000000000000000041 /* ClipboardImageStoring.swift */,
@@ -275,6 +280,7 @@
 		A70000000000000000000016 /* Application */ = {
 			isa = PBXGroup;
 			children = (
+				A20000000000000000000045 /* GitHubReleaseChecker.swift */,
 				A20000000000000000000029 /* SystemActiveApplicationProvider.swift */,
 				A20000000000000000000036 /* SystemLaunchAtLoginManager.swift */,
 			);
@@ -406,6 +412,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000026 /* ActiveApplicationProviding.swift in Sources */,
+				A10000000000000000000042 /* AppReleaseChecking.swift in Sources */,
 				A10000000000000000000031 /* ApplicationSettingsPersisting.swift in Sources */,
 				A10000000000000000000009 /* AppDelegate.swift in Sources */,
 				A10000000000000000000001 /* ClipboardApp.swift in Sources */,
@@ -429,6 +436,7 @@
 				A10000000000000000000016 /* PopoverDismissing.swift in Sources */,
 				A10000000000000000000029 /* PrivacySettings.swift in Sources */,
 				A10000000000000000000040 /* FileClipboardImageStore.swift in Sources */,
+				A10000000000000000000043 /* GitHubReleaseChecker.swift in Sources */,
 				A10000000000000000000037 /* SettingsView.swift in Sources */,
 				A10000000000000000000036 /* SettingsViewModel.swift in Sources */,
 				A10000000000000000000020 /* SQLiteClipboardHistoryStore.swift in Sources */,
@@ -471,14 +479,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Recall;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.local.Recall;
 				PRODUCT_MODULE_NAME = Clipboard;
 				PRODUCT_NAME = Recall;
@@ -493,13 +501,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Recall;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.0;
+				MARKETING_VERSION = 0.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.local.Recall;
 				PRODUCT_MODULE_NAME = Clipboard;
 				PRODUCT_NAME = Recall;

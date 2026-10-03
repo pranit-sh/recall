@@ -111,6 +111,47 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.ignoredApplications.isEmpty)
     }
 
+    func testUpdateCheckReportsNewerRelease() async {
+        let release = AppRelease(
+            version: "0.4.0",
+            pageURL: URL(string: "https://github.com/pranit-sh/recall/releases/tag/v0.4.0")!
+        )
+        let viewModel = makeViewModel(
+            releaseChecker: AppReleaseCheckerStub(release: release),
+            currentVersion: "0.3.0"
+        )
+
+        await viewModel.checkForUpdates()
+
+        XCTAssertEqual(viewModel.updateStatus, .updateAvailable(release))
+    }
+
+    func testUpdateCheckReportsCurrentVersionAsUpToDate() async {
+        let viewModel = makeViewModel(
+            releaseChecker: AppReleaseCheckerStub(
+                release: AppRelease(
+                    version: "0.3.0",
+                    pageURL: URL(string: "https://github.com/pranit-sh/recall/releases/tag/v0.3.0")!
+                )
+            ),
+            currentVersion: "0.3.0"
+        )
+
+        await viewModel.checkForUpdates()
+
+        XCTAssertEqual(viewModel.updateStatus, .upToDate)
+    }
+
+    func testUpdateCheckFailureCanBeRetried() async {
+        let viewModel = makeViewModel(
+            releaseChecker: AppReleaseCheckerStub(error: SettingsTestError.updateFailed)
+        )
+
+        await viewModel.checkForUpdates()
+
+        XCTAssertEqual(viewModel.updateStatus, .failed)
+    }
+
     func testSettingsViewCanBeCreated() {
         XCTAssertNotNil(SettingsView(viewModel: makeViewModel()))
     }
@@ -121,6 +162,13 @@ final class SettingsViewModelTests: XCTestCase {
         privacySettings: PrivacySettings = PrivacySettings(),
         applicationProvider: ActiveApplicationProviding = SettingsApplicationProviderStub(),
         launchAtLoginManager: LaunchAtLoginManaging = LaunchAtLoginManagerStub(),
+        releaseChecker: any AppReleaseChecking = AppReleaseCheckerStub(
+            release: AppRelease(
+                version: "0.3.0",
+                pageURL: URL(string: "https://github.com/pranit-sh/recall/releases/tag/v0.3.0")!
+            )
+        ),
+        currentVersion: String = "0.3.0",
         displayLimitDidChange: @escaping (Int) -> Void = { _ in }
     ) -> SettingsViewModel {
         let pasteboard = SettingsPasteboardStub()
@@ -133,6 +181,8 @@ final class SettingsViewModelTests: XCTestCase {
             privacySettings: privacySettings,
             applicationProvider: applicationProvider,
             launchAtLoginManager: launchAtLoginManager,
+            releaseChecker: releaseChecker,
+            currentVersion: currentVersion,
             displayLimitDidChange: displayLimitDidChange
         )
     }
@@ -215,4 +265,26 @@ private final class SettingsPasteboardStub: PasteboardReading {
 
 private enum SettingsTestError: Error {
     case updateFailed
+}
+
+private struct AppReleaseCheckerStub: AppReleaseChecking {
+    let release: AppRelease?
+    let error: Error?
+
+    init(release: AppRelease) {
+        self.release = release
+        error = nil
+    }
+
+    init(error: Error) {
+        release = nil
+        self.error = error
+    }
+
+    func latestRelease() async throws -> AppRelease {
+        if let error {
+            throw error
+        }
+        return release!
+    }
 }

@@ -80,7 +80,7 @@ final class ClipboardMonitorTests: XCTestCase {
 
         let image = try XCTUnwrap(monitor.history.items.first?.image)
         XCTAssertEqual(image.contentHash, "image-hash")
-        XCTAssertEqual(image.displayText, "640 × 480")
+        XCTAssertEqual(image.displayText, "IMAGE 640 × 480")
     }
 
     func testWhitespaceOnlyPasteboardChangeIsIgnored() {
